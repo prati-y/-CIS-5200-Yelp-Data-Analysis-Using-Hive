@@ -1,1 +1,1 @@
-# -CIS-5200-Yelp-Data-Analysis-Using-Hive
+# CIS-5200-Yelp-Data-Analysis-Using-Hive
