@@ -6,4 +6,4 @@ Provide a high level, general, and aggregated approach to sentiment analysis. Vi
 
 **Team Members :** Philip Wong, Pratiksha Yadav, Pooja Madhup, Shailja Pandit
 
-The Presentation ppt in the files displays the prototype explanation.
+The presentation ppt in the files displays the prototype explanation.
