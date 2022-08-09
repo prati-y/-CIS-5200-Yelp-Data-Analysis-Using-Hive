@@ -1,0 +1,517 @@
+
+//importing data to linux system
+scp Downloads/yelp_academic_dataset_user.json pwong4@35.87.210.247:/home/pwong4/
+scp Downloads/yelp_academic_dataset_business.json pwong4@35.87.210.247:/home/pwong4/
+scp Downloads/yelp_academic_dataset_review.json pwong@35.87.210.247:/home/pwong4/
+
+//make directories upload files to hdfs 
+
+hdfs dfs -mkdir yelp 
+hdfs dfs -mkdir yelp/business 
+hdfs dfs -mkdir yelp/review 
+hdfs dfs -mkdir yelp/user 
+hdfs dfs -mkdir tmp
+hdfs dfs -mkdir tmp/reviewbi
+hdfs dfs -mkdir tmp/reviewbi_hospital
+hdfs dfs -mkdir tmp/top
+hdfs dfs -mkdir tmp/bottom
+hdfs dfs -mkdir tmp/reviewbi_hospital_pa
+hdfs dfs -mkdir tmp/reviewbi_restaurant_pa
+hdfs dfs -put yelp_academic_dataset_business.json yelp/business 
+hdfs dfs -put yelp_academic_dataset_review.json yelp/review 
+hdfs dfs -put yelp_academic_dataset_user.json yelp/user 
+
+// confirm files transfered 
+hdfs dfs -ls yelp/business 
+hdfs dfs -ls yelp/review 
+hdfs dfs -ls yelp/user 
+
+//remove the files from linux system once the upload is done to hdfs.
+
+rm yelp_academic_dataset_business.json 
+rm yelp_academic_dataset_review.json
+rm yelp_academic_dataset_user.json
+
+
+//imported dictionary.tsv into hdfs 'tmp/dictionary' 
+
+wget -O dictionary.tsv https://github.com/dalgual/aidatasci/raw/master/data/bigdata/dictionary.tsv 
+hdfs dfs -mkdir yelp/dictionary 
+hdfs dfs -put dictionary.tsv yelp/dictionary 
+hdfs dfs -ls yelp/dictionary 
+
+
+CREATE EXTERNAL TABLE if not exists dictionary ( 
+type string, 
+length int, 
+word string, 
+pos string, 
+stemmed string, 
+polarity string ) 
+ROW FORMAT DELIMITED 
+FIELDS TERMINATED BY '\t' 
+STORED AS TEXTFILE 
+LOCATION 'yelp/dictionary'; 
+ 
+SELECT * from dictionary limit 5; 
+
+// Reference/Import to JSON File 
+
+CREATE EXTERNAL TABLE IF NOT EXISTS raw_business(json_response STRING) 
+STORED AS TEXTFILE 
+LOCATION "yelp/business"; 
+ 
+CREATE EXTERNAL TABLE IF NOT EXISTS raw_review(json_response STRING) 
+STORED AS TEXTFILE 
+LOCATION "yelp/review"; 
+ 
+CREATE EXTERNAL TABLE IF NOT EXISTS raw_user(json_response STRING) 
+STORED AS TEXTFILE 
+LOCATION "yelp/user"; 
+
+ //Check data 
+select * from raw_business LIMIT 1; 
+select * from raw_review LIMIT 1; 
+select * from raw_user LIMIT 1; 
+
+
+// Create Schema or Table with no data 
+CREATE TABLE IF NOT EXISTS review_table ( 
+review_id STRING, 
+user_id STRING, 
+business_id STRING, 
+stars INT, 
+useful INT, 
+funny INT, 
+cool INT, 
+text STRING, 
+`date` STRING);  
+ 
+CREATE TABLE IF NOT EXISTS business_table( 
+business_id STRING, 
+name STRING, 
+address STRING, 
+city STRING, 
+state STRING, 
+postal STRING, 
+lattitude float, 
+longitude float, 
+stars INT,  
+review_count INT, 
+is_open INT, 
+attributes STRING, 
+categories STRING, 
+hours INT); 
+  
+CREATE TABLE IF NOT EXISTS user_table ( 
+user_id STRING, 
+name STRING, 
+review_count INT, 
+yelping_since INT, 
+useful INT, 
+funny INT, 
+cool INT, 
+fans INT, 
+elite STRING, 
+average_stars FLOAT, 
+compliment_hot INT, 
+compliment_more INT, 
+compliment_profile INT, 
+compliment_cute INT, 
+compliment_list INT, 
+compliment_note INT, 
+compliment_plain INT, 
+compliment_cool INT, 
+compliment_funny INT, 
+compliment_writer INT, 
+compliment_photos INT   
+); 
+
+//Taking data from raw_business to business_table using SELECT statement: 
+ 
+FROM raw_business 
+INSERT OVERWRITE TABLE business_table 
+SELECT get_json_object(json_response, '$.business_id'), 
+get_json_object(json_response, '$.name'), 
+get_json_object(json_response, '$.address'), 
+get_json_object(json_response, '$.city'), 
+get_json_object(json_response, '$.state'), 
+get_json_object(json_response, '$.postal_code'), 
+get_json_object(json_response, '$.lattitude'), 
+get_json_object(json_response, '$.longitude'), 
+get_json_object(json_response, '$.stars'), 
+get_json_object(json_response, '$.review_count'), 
+get_json_object(json_response, '$.is_open'), 
+get_json_object(json_response, '$.attributes'), 
+get_json_object(json_response, '$.categories'), 
+get_json_object(json_response, '$.hours'); 
+  
+select * from raw_business LIMIT 1; 
+select * from business_table LIMIT 10; 
+ 
+ 
+//Taking data from raw_user to user_table using SELECT statement: 
+ 
+From raw_user 
+INSERT OVERWRITE TABLE user_table 
+SELECT get_json_object(json_response, '$.user_id'), 
+get_json_object(json_response, '$.name'), 
+get_json_object(json_response, '$.review_count'), 
+SUBSTR(get_json_object(json_response,'$.yelping_since'),0,4), 
+get_json_object(json_response, '$.useful'), 
+get_json_object(json_response, '$.funny'), 
+get_json_object(json_response, '$.cool'), 
+get_json_object(json_response, '$.fans'), 
+get_json_object(json_response, '$.elite'), 
+get_json_object(json_response, '$.average_stars'), 
+get_json_object(json_response, '$.compliment_hot'), 
+get_json_object(json_response, '$.compliment_more'), 
+get_json_object(json_response, '$.compliment_profile'), 
+get_json_object(json_response, '$.compliment_cute'), 
+get_json_object(json_response, '$.compliment_list'), 
+get_json_object(json_response, '$.compliment_note'), 
+get_json_object(json_response, '$.compliment_plain'), 
+get_json_object(json_response, '$.compliment_cool'), 
+get_json_object(json_response, '$.compliment_funny'), 
+get_json_object(json_response, '$.compliment_writer'), 
+get_json_object(json_response, '$.compliment_photos'); 
+  
+SELECT * FROM raw_user LIMIT 1; 
+SELECT * FROM user_table LIMIT 5; 
+ 
+//Taking data from raw_review to review_table using SELECT statement: 
+  
+From raw_review 
+INSERT OVERWRITE TABLE review_table 
+SELECT get_json_object(json_response, '$.review_id'), 
+get_json_object(json_response, '$.user_id'), 
+get_json_object(json_response, '$.business_id'), 
+get_json_object(json_response,  '$.stars'), 
+get_json_object(json_response, '$.useful'), 
+get_json_object(json_response, '$.funny'), 
+get_json_object(json_response,'$.cool'), 
+get_json_object(json_response, '$.text'), 
+cast(substr(get_json_object(json_response,'$.date'),0,4) as  INT);
+
+SELECT * FROM raw_review LIMIT 1; 
+SELECT * FROM review_table LIMIT 5; 
+
+//Need review_clean to include review_table.review_id, review_table.text, business_table.city, business_table.categories 
+ 
+CREATE VIEW IF NOT EXISTS review_clean AS  
+SELECT  
+rt.review_id,  
+rt.text,  
+b.city,  
+b.categories  
+FROM review_table rt LEFT OUTER JOIN  
+business_table b ON rt.business_id = b.business_id  
+Where rt.text is not null;  
+ 
+ select * from review_clean LIMIT 10;   
+ 
+// Analysis : for restaurants category only
+CREATE VIEW IF NOT EXISTS review_clean_restaurants AS  
+SELECT  
+rt.review_id,  
+rt.text,  
+b.city,  
+REGEXP_EXTRACT(b.categories, 'Restaurants', 0)  AS categories 
+FROM review_table rt LEFT OUTER JOIN  
+business_table b ON rt.business_id = b.business_id where b.categories LIKE '%Restaurants%';  
+   
+select * from review_clean_restaurants LIMIT 10; 
+
+--Create view l1 to compute sentiment  
+create view IF NOT EXISTS l1 as  
+select review_id, words  
+from review_table  
+lateral view explode(sentences(lower(text))) dummy as words;  
+  
+-- Create view l2 from l1 to compute sentiment  
+create view IF NOT EXISTS l2 as  
+select review_id, word  
+from l1  
+lateral view explode( words ) dummy as word;  
+  
+-- Create view l3 from l2 to compute sentiment  
+create view IF NOT EXISTS l3 as select  
+review_id,  
+l2.word,  
+case d.polarity  
+when 'negative' then -1  
+when 'positive' then 1  
+else 0 end as polarity  
+from l2 left outer join dictionary d on l2.word = d.word;  
+
+select * from l3 LIMIT 3; 
+ 
+create table IF NOT EXISTS review_sentiment  
+stored as orc as select  
+review_id,  
+case  
+when sum( polarity ) > 0 then 'positive'  
+when sum( polarity ) < 0 then 'negative'  
+else 'neutral' end as sentiment  
+from l3 group by review_id;  
+
+SELECT * FROM review_sentiment LIMIT 5;  
+ 
+//create schema 
+
+CREATE TABLE IF NOT EXISTS reviewbi  
+ROW FORMAT DELIMITED  
+FIELDS TERMINATED BY ","  
+STORED AS TEXTFILE  
+LOCATION "tmp/reviewbi"  
+AS SELECT  
+rc.review_id,rc.city, rc.categories, 
+case rs.sentiment  
+when 'positive' then 2  
+when 'neutral' then 1  
+when 'negative' then 0  
+end as sentiment  
+FROM review_clean_restaurants rc LEFT OUTER JOIN review_sentiment rs 
+on rc.review_id = rs.review_id  
+WHERE 1=0 -- Not to copy value but only schema  
+LIMIT 1;  
+
+//Insert data into reviewbi table  
+
+Insert into table reviewbi  
+SELECT  
+rc.review_id, rc.city, rc.categories, 
+case rs.sentiment  
+when 'positive' then 2  
+when 'neutral' then 1  
+when 'negative' then 0  
+end as sentiment  
+FROM review_clean_restaurants rc LEFT OUTER JOIN review_sentiment rs 
+on rc.review_id = rs.review_id;  
+
+// Analysis : for hospital category only
+CREATE VIEW IF NOT EXISTS review_clean_hospital AS  
+SELECT  
+rt.review_id,  
+rt.text,  
+b.city,  
+REGEXP_EXTRACT(b.categories, 'Hospitals', 0) AS categories  
+FROM review_table rt LEFT OUTER JOIN  
+business_table b ON rt.business_id = b.business_id where b.categories LIKE '%Hospitals%';   
+
+//Create a table for hospital
+Drop table if exists reviewbi_hospital; 
+
+CREATE TABLE IF NOT EXISTS reviewbi_hospital  
+ROW FORMAT DELIMITED  
+FIELDS TERMINATED BY ","  
+STORED AS TEXTFILE  
+LOCATION "tmp/reviewbi_hospital"  
+AS SELECT  
+rc.review_id, rc.city, rc.categories, 
+case rs.sentiment  
+when 'positive' then 2  
+when 'neutral' then 1  
+when 'negative' then 0  
+end as sentiment  
+FROM review_clean_hospital rc LEFT OUTER JOIN review_sentiment rs 
+on rc.review_id = rs.review_id  
+WHERE 1=0         
+LIMIT 1;    
+
+//Insert the data for hospital
+Insert into table reviewbi_hospital   
+SELECT  
+rc.review_id, rc.city, rc.categories, 
+case rs.sentiment  
+when 'positive' then 2  
+when 'neutral' then 1  
+when 'negative' then 0  
+end as sentiment  
+FROM review_clean_hospital rc LEFT OUTER JOIN review_sentiment rs 
+on rc.review_id = rs.review_id;  
+
+SELECT * FROM reviewbi_hospital LIMIT 5;
+
+hdfs dfs -ls tmp/reviewbi_hospital
+hdfs dfs -cat tmp/reviewbi_hospital/delta_0000002_0000002_0000/0000* > /home/pwong4/combined_hospital.csv
+cat combined_hospital.csv | tail -n 2
+$ scp pwong4@129.146.154.176:/home/pwong4/combined_hospital.csv .
+
+ //schema for hospital pa 
+
+CREATE TABLE IF NOT EXISTS reviewbi_hospital_pa  
+ROW FORMAT DELIMITED  
+FIELDS TERMINATED BY ","  
+STORED AS TEXTFILE  
+LOCATION "tmp/reviewbi_hospital_pa"  
+AS SELECT  
+rc.review_id, rc.city, rc.categories, 
+case rs.sentiment  
+when 'positive' then 2  
+when 'neutral' then 1  
+when 'negative' then 0  
+end as sentiment  
+FROM review_clean_hospital_pa rc LEFT OUTER JOIN review_sentiment rs 
+on rc.review_id = rs.review_id  
+WHERE 1=0  
+LIMIT 1;    
+
+   
+//Insert the data for hospital pa
+
+INSERT into table reviewbi_hospital_pa  
+SELECT  
+rc.review_id, rc.city, rc.categories, 
+case rs.sentiment  
+when 'positive' then 2  
+when 'neutral' then 1  
+when 'negative' then 0  
+end as sentiment  
+FROM review_clean_hospital_pa rc LEFT OUTER JOIN review_sentiment rs 
+on rc.review_id = rs.review_id;  
+
+
+//combine csv output into one file 
+ 
+hdfs dfs -cat tmp/reviewbi_hospital_pa/delta_0000002_0000002_0000/0000* > /home/pwong4/combined_restaurant_pa.csv
+cat combined_hospital_pa.csv | tail -n 2
+$ scp pwong4@129.146.154.176:/home/pwong4/combined_hospital_pa.csv .
+
+hdfs dfs -cat tmp/reviewbi/delta_0000002_0000002_0000/0000* > /home/pwong4/combined_restaurant.csv
+cat combined_restaurant.csv | tail -n 2
+$ scp pwong4@129.146.154.176:/home/pwong4/combined_restaurant.csv .
+
+//create schema for restaurants pa
+CREATE TABLE IF NOT EXISTS reviewbi_restaurants_pa 
+ROW FORMAT DELIMITED  
+FIELDS TERMINATED BY ","  
+STORED AS TEXTFILE  
+LOCATION "tmp/reviewbi_restaurants_pa"  
+AS SELECT  
+rc.review_id,rc.city, rc.categories, 
+case rs.sentiment  
+when 'positive' then 2  
+when 'neutral' then 1  
+when 'negative' then 0  
+end as sentiment  
+FROM review_clean_restaurants rc LEFT OUTER JOIN review_sentiment rs 
+on rc.review_id = rs.review_id  
+WHERE 1=0  
+LIMIT 1;  
+
+//Insert data into reviewbi table for PA 
+Insert into table reviewbi_restaurants_pa  
+SELECT  
+rc.review_id, rc.city, rc.categories, 
+case rs.sentiment  
+when 'positive' then 2  
+when 'neutral' then 1  
+when 'negative' then 0  
+end as sentiment  
+FROM review_clean_restaurants_pa rc LEFT OUTER JOIN review_sentiment rs 
+on rc.review_id = rs.review_id;  
+
+
+hdfs dfs -cat tmp/reviewbi_restaurant_pa/delta_0000002_0000002_0000/0000* > /home/pwong4/combined_restaurant_pa.csv
+cat combined_restaurant_pa.csv | tail -n 2
+scp pwong4@129.146.154.176:/home/pwong4/combined_restaurant_pa.csv .
+
+//Test records 
+select count(*) from reviewbi; 
+select * from reviewbi limit 5; 
+ select * from reviewbi  LIMIT 3; 
+ select count(*) from reviewbi; 
+
+
+ANALYSIS : Count of yelp users for last 10 years
+
+Drop table if exists review_count_last10_years; 
+CREATE TABLE IF NOT EXISTS total_user_count_last10_years(user_id string, yelping_since int) 
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ","
+STORED AS TEXTFILE LOCATION  
+'/user/pwong4/yelp/user/total_user_count_last10_years'; 
+
+INSERT OVERWRITE TABLE total_user_count_last10_years
+Select count(user_id) as user_id, yelping_since from user_table group by yelping_since order BY yelping_since DESC limit 10; 
+  
+select * from total_user_count_last10_years; 
+
+//Downloading the file to your pc for visualization 
+
+hdfs dfs -ls yelp/user/
+hdfs dfs -cat yelp/user/total_user_count_last10_years/000000_0 | tail -n 2
+hdfs dfs -get yelp/user/review_count_last10_years/000000_0  total_user_count_last10_years.csv
+cat total_user_count_last10_years.csv |tail -n 2
+scp pwong4@35.87.184.21:/home/pwong4/total_user_count_last10_years.csv . 
+
+
+Analysis : Top 10 states with the highest review count
+
+DROP TABLE IF EXISTS top10_states;
+
+CREATE TABLE IF NOT EXISTS top10_states(state string, review_count int) 
+ROW FORMAT DELIMITED FIELDS TERMINATED BY "," 
+STORED AS TEXTFILE LOCATION '/user/pwong4/yelp/business/top10_states'; 
+  
+INSERT OVERWRITE TABLE top10_states
+SELECT state, sum(review_count) as review_count from business_table group by state order by review_count desc limit 10; 
+
+select * from top10_states;
+
+//Downloading the file to your pc for visualization 
+  
+hdfs dfs -ls yelp/business/
+hdfs dfs -cat yelp/business/top10_states/000000_0 | tail -n 2 
+hdfs dfs -get yelp/business/top10_states/000000_0 top10_states.csv 
+cat top10_states.csv | tail -n 2 
+scp pwong4@35.87.184.21:/home/pwong4/top10_states.csv .
+
+
+Analysis : Top 10, Bottom 10 user by overall sentiment
+
+//sum polarity by review_id
+
+create table IF NOT EXISTS review_sentiment_TOP 
+stored as orc as select 
+review_id, sum( polarity ) as sentiment 
+from l3 group by review_id; 
+  
+// determine userid for each user_id_TOP
+
+CREATE TABLE IF NOT EXISTS user_id_TOP 
+AS SELECT 
+rt.user_id, sum( rs.sentiment ) as sentiment  
+FROM review_sentiment_TOP rs LEFT OUTER JOIN review_table rt 
+on rs.review_id = rt.review_id group by user_id; 
+  
+
+// Overall Average 
+SELECT AVG(sentiment) as overall_avg from user_id_top; 
+  
+// Top 10 sentiment 
+INSERT OVERWRITE DIRECTORY '/user/pwong4/tmp/top' 
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ","  
+SELECT * from user_id_TOP 
+ORDER BY sentiment DESC LIMIT 10; 
+  
+//Bottom 10 
+// Bottom 10 sentiment 
+
+INSERT OVERWRITE DIRECTORY '/user/pwong4/tmp/bottom' 
+ROW FORMAT DELIMITED FIELDS TERMINATED BY "," 
+SELECT * from user_id_bottom 
+ORDER BY sentiment ASC LIMIT 10; 
+ 
+//Downloading the file to your pc for visualization 
+
+hdfs dfs -ls tmp/top 
+hdfs dfs -ls tmp/bottom 
+hdfs dfs -get tmp/top/000000_0 top10_yelp.csv 
+hdfs dfs -get tmp/bottom/000000_0 bot10_yelp.csv 
+cat top10_yelp.csv  
+cat bot10_yelp.csv  
+scp pwong4@129.146.154.176:/home/pwong4/bot10_yelp.csv . 
+scp pwong4@129.146.154.176:/home/pwong4/top10_yelp.csv . 
+
+
