@@ -20,4 +20,4 @@ Created data visualizations using Excel Power Map and Tableau.
 
 **Team Members :** Philip Wong, Pratiksha Yadav, Pooja Madhup, Shailja Pandit
 
-The presentation ppt in the files displays the prototype explanation.
+
